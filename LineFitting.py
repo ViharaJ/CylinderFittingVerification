@@ -62,7 +62,7 @@ def fittingBest(x,y):
     par = np.polyfit(x,y, 1, full=True)
     
     #use np.polyfit
-        
+    #https://stackoverflow.com/questions/18767523/fitting-data-with-numpy/18767992#18767992
     
 
 for file in os.listdir(inputDir):

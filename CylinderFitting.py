@@ -105,20 +105,29 @@ for file in os.listdir(inputDir):
     Xc,Yc,Zc = data_for_cylinder_along_z(est_p[0], est_p[1],est_p[4], 5)
     ax.plot_surface(Xc, Yc, Zc, alpha=0.8)
     
-    ax.set_title('3D line plot geeks for geeks')
+    ax.set_title('3D Plot')
     plt.show()
     
    
-    
+    Ra = []
     for deg in range(-180,180, 1):
         indices = np.where(np.logical_and(theta > deg - stepWidth/2, theta <= deg + stepWidth/2))
 
         relv_x = data[indices, 0]
         relv_y = data[indices, 1]
         relv_z = data[indices, 2]
+        relv_radii = r[indices]
         
-        fig = plt.figure()
-        ax = plt.axes(projection='3d')
-        ax.scatter(relv_x, relv_y, relv_z, marker=".", color="green")
-        ax.set_title('3D line plot geeks for geeks')
-        plt.show()
+        # fig = plt.figure()
+        # ax = plt.axes(projection='3d')
+        # ax.scatter(relv_x, relv_y, relv_z, marker=".", color="green")
+        # ax.set_title('3D line plot geeks for geeks')
+        # plt.show()
+        
+        
+        Ra.append([np.mean(np.abs(relv_radii - np.mean(relv_radii))), deg])
+        
+    Ra = np.array(Ra)
+    
+    plt.polar(Ra[:,1] / (180 / np.pi), Ra[:,0],'.')
+    plt.show()

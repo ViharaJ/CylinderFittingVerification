@@ -16,10 +16,6 @@ import Module.Functions as fb
 import shapely
 from scipy import signal
 
-#===============GLOBAL VARIABLES=================================
-inputDir = "C:/Users/v.jayaweera/Documents/Anne/Line-Fitting/Point-Cloud-Files"
-
-acceptedFileType = None
 
 
 #===========================FUNCTIONS=================================
@@ -68,6 +64,59 @@ def fittingBest(x,y):
     #https://stackoverflow.com/questions/18767523/fitting-data-with-numpy/18767992#18767992
     
 
+#===============GLOBAL VARIABLES=================================
+inputDir = "C:/Users/v.jayaweera/Documents/Anne/Line-Fitting/Point-Cloud-Files"
 
 
+
+
+for file in os.listdir(inputDir):
+    distanceE =[]
+    saveIndex = []
+   
+    
+    #TODO: Extract from point cloud
+    x,y = []
+    
+    
+    #create kernel
+    sig = 350
+    size = 319
+    kernel = fb.gauss1D(size, sig)   
+
+    #get baseline - GAUSS
+    xscipy = signal.convolve(x, kernel, mode='valid')
+    yscipy = signal.convolve(y, kernel, mode='valid')
+    
+    dx = np.diff(xscipy)
+    dy = np.diff(yscipy)
+
+  
+    finalOrder = list(zip(x,y))
+    polyGon = shapely.geometry.LineString(finalOrder)
+     
+    for j in range(1,len(dx)):
+        xs, ys = fb.createNormalLine(xscipy[j], yscipy[j], dx[j], dy[j])
+       
+        
+        stack = np.stack((xs,ys), axis=-1)
+        line = shapely.geometry.LineString(stack)
+        
+        #TODO remove this from main CODE
+        if(polyGon.intersects(line)):
+            #intersection geometry
+            interPoints = polyGon.intersection(line)
+            
+            #intersection point
+            mx, my = fb.proccessIntersectionPoint(interPoints, xscipy[j], yscipy[j])
+            
+            euD = fb.euclidDist(xscipy[j], yscipy[j], mx, my)
+            distanceE.append(euD)
+            saveIndex.append(j)
+   
+    # calculations 
+    mean = np.average(distanceE)
+    
+   
+    
     

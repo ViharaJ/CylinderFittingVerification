@@ -6,7 +6,7 @@ import numpy as np
 import os
 from scipy.optimize import leastsq
 import matplotlib.pyplot as plt
-
+import csv
 
 #===========================FUNCTIONS=================================
 def cylinderFitting(xyz,p,th):
@@ -68,6 +68,12 @@ def cart2pol(x, y):
     return(rho, phi)
 
 
+def writeToTxt(a,b):
+    d  = np.column_stack([a, b])
+    np.savetxt('test.txt', d, fmt=['%f','%f'])
+    
+        
+
 #===============GLOBAL VARIABLES=================================
 inputDir = "C:/Users/v.jayaweera/Documents/Anne/Line-Fitting/Point-Cloud-Files"
 stepWidth = 1
@@ -87,6 +93,7 @@ for file in os.listdir(inputDir):
     
     #shift CT data to x,y,z = 0
     data = translate(data, est_p[0], est_p[1])
+    #ROTATION
     x = data[:,0][::150]
     y = data[:,1][::150]
     z = data[:,2][::150]
@@ -118,10 +125,13 @@ for file in os.listdir(inputDir):
         relv_z = data[indices, 2][0]
         relv_radii = r[indices]
         
-        plt.plot(relv_z, relv_radii, '.-')
-        plt.xlabel("z")
-        plt.ylabel("r")
-        plt.show()
+        # plt.plot(relv_z, relv_radii, '.')
+        # plt.xlabel("z")
+        # plt.ylim([0,1])
+        # plt.ylabel("r")
+        # plt.show()
+        
+        # writeToTxt(relv_z, relv_radii)
         
         # plot splice
         # fig = plt.figure()

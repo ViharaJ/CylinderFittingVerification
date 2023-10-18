@@ -1,5 +1,7 @@
 """
 Fits cylinder to point cloud
+Writes r,phi files to folder name LineProfile-Output 
+    - this folder must be created in the directory of this script 
 Credit to answer: https://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-datahttps://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-data
 """
 import numpy as np
@@ -7,6 +9,8 @@ import os
 from scipy.optimize import leastsq
 import matplotlib.pyplot as plt
 import csv
+import pandas as pd
+
 
 #===========================FUNCTIONS=================================
 def cylinderFitting(xyz,p,th):
@@ -59,6 +63,21 @@ def translate(data, x, y):
     
     return data
 
+def rotX(data, angle):
+    rotXmatrix = np.array([[1,0,0],
+                           [0, np.cos(angle), -np.sin(angle)],
+                           [0, np.sin(angle), np.cos(angle)]])
+    
+    return np.dot(data, rotXmatrix)
+
+
+def rotY(data, angle):
+    rotYmatrix = np.array([[np.cos(angle), 0, np.sin(angle)],
+                           [0, 1, 0],
+                           [-np.sin(angle), 0, np.cos(angle)]])
+    
+    return np.dot(data, rotYmatrix)
+
 def cart2pol(x, y):
     '''
     returns r and phi, angle is in degrees [-180,180]
@@ -68,9 +87,10 @@ def cart2pol(x, y):
     return(rho, phi)
 
 
-def writeToTxt(a,b):
+
+def writeToTxt(name, a, b):
     d  = np.column_stack([a, b])
-    np.savetxt('test.txt', d, fmt=['%f','%f'])
+    np.savetxt('LineProfile-Output/' + name + '.txt', d, fmt=['%f','%f'])
     
         
 
@@ -81,6 +101,7 @@ stepWidth = 1
 
 #=======================MAIN===================================
 for file in os.listdir(inputDir):
+    probe = file.split("_")[1]
     #include if statement to filter inocrrect file types here 
     data = np.loadtxt(inputDir + "/"+ file, skiprows=1)
     
@@ -94,6 +115,9 @@ for file in os.listdir(inputDir):
     #shift CT data to x,y,z = 0
     data = translate(data, est_p[0], est_p[1])
     #ROTATION
+    data = rotX(data, est_p[2])
+    data = rotY(data, est_p[3])
+    
     x = data[:,0][::150]
     y = data[:,1][::150]
     z = data[:,2][::150]
@@ -101,10 +125,13 @@ for file in os.listdir(inputDir):
     #convert to cylindrical coordinates
     (r, theta) = cart2pol(data[:,0], data[:,1])
     
+    theta = theta + 180 #change range to [0, 360]
     # PLOTTING
     fig = plt.figure()
     ax = plt.axes(projection='3d')
-    
+    # ax.axes.set_xlim3d (left=-3, right=2) 
+    # ax.axes.set_ylim3d (bottom=-3, top=2) 
+    # ax.axes.set_zlim3d (bottom=0, top=3) 
     # PLOT ORIGINAL
     ax.scatter(x, y, z, marker=".", color="green")
     
@@ -117,7 +144,7 @@ for file in os.listdir(inputDir):
     
    
     Ra = []
-    for deg in range(-180,180, 1):
+    for deg in range(0,360, 1):
         indices = np.where(np.logical_and(theta > deg - stepWidth/2, theta <= deg + stepWidth/2))
 
         relv_x = data[indices, 0]
@@ -131,7 +158,7 @@ for file in os.listdir(inputDir):
         # plt.ylabel("r")
         # plt.show()
         
-        # writeToTxt(relv_z, relv_radii)
+        writeToTxt(probe + "/Profile_Deg_" + str(deg), relv_z, relv_radii)
         
         # plot splice
         # fig = plt.figure()
@@ -145,6 +172,10 @@ for file in os.listdir(inputDir):
         
     Ra = np.array(Ra)
     
+    #save to file 
+    df = pd.DataFrame(data=Ra, columns=['Ra', 'Degree' ])
+    df.to_csv(probe + "_Ra_Data.csv", index=False)
+
     
     plt.polar(Ra[:,1] / (180 / np.pi), Ra[:,0],'.')
     plt.show()

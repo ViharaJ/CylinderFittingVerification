@@ -70,5 +70,4 @@ def fittingBest(x,y):
 
 
 
-for file in os.listdir(inputDir):
     

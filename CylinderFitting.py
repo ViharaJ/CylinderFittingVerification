@@ -101,8 +101,8 @@ for file in os.listdir(inputDir):
     # PLOT ORIGINAL
     ax.scatter(x, y, z, marker=".", color="green")
     
-    # PLOT FITTED CYLINDER
-    Xc,Yc,Zc = data_for_cylinder_along_z(est_p[0], est_p[1],est_p[4], 5)
+    # PLOT FITTED CYLINDER, center = 0,0
+    Xc,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 5)
     ax.plot_surface(Xc, Yc, Zc, alpha=0.8)
     
     ax.set_title('3D Plot')
@@ -115,19 +115,31 @@ for file in os.listdir(inputDir):
 
         relv_x = data[indices, 0]
         relv_y = data[indices, 1]
-        relv_z = data[indices, 2]
+        relv_z = data[indices, 2][0]
         relv_radii = r[indices]
         
+        plt.plot(relv_z, relv_radii, '.-')
+        plt.xlabel("z")
+        plt.ylabel("r")
+        plt.show()
+        
+        # plot splice
         # fig = plt.figure()
         # ax = plt.axes(projection='3d')
         # ax.scatter(relv_x, relv_y, relv_z, marker=".", color="green")
+        # ax.plot_surface(Xc, Yc, Zc, alpha=0.8) #plot fitted cylinder
         # ax.set_title('3D line plot geeks for geeks')
         # plt.show()
-        
         
         Ra.append([np.mean(np.abs(relv_radii - np.mean(relv_radii))), deg])
         
     Ra = np.array(Ra)
     
+    
     plt.polar(Ra[:,1] / (180 / np.pi), Ra[:,0],'.')
+    plt.show()
+    
+    plt.plot(Ra[:,1], Ra[:,0], 'b.-')
+    plt.xlabel("Angel")
+    plt.ylabel("rho")
     plt.show()

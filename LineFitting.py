@@ -11,15 +11,18 @@ Create baseline using 2 methods
 
 """
 import os 
-import cv2 
 import numpy as np
 import Module.Functions as fb
 import shapely
 from scipy import signal
 
-inputDir = ""
+#===============GLOBAL VARIABLES=================================
+inputDir = "C:/Users/v.jayaweera/Documents/Anne/Line-Fitting/Point-Cloud-Files"
 
 acceptedFileType = None
+
+
+#===========================FUNCTIONS=================================
 
 
 def findDistancesGauss(x,y,xscipy, yscipy, dx, dy):
@@ -65,45 +68,7 @@ def fittingBest(x,y):
     #https://stackoverflow.com/questions/18767523/fitting-data-with-numpy/18767992#18767992
     
 
+
+
 for file in os.listdir(inputDir):
-    #include if statement to filter inocrrect file types here 
-    
-    #TODO: Extract from point cloud
-    x,y = []
-    
-    
-    #create kernel
-    sig = 350
-    size = 319
-    kernel = fb.gauss1D(size, sig)   
-
-    #get baseline - GAUSS
-    xscipy = signal.convolve(x, kernel, mode='valid')
-    yscipy = signal.convolve(y, kernel, mode='valid')
-    
-    dx = np.diff(xscipy)
-    dy = np.diff(yscipy)
-
-    #best fit 
-    # determine best fit line
-    par = np.polyfit(x,y, 1, full=True)
-  
-    
-    
-    # #TODO: place best fit line points
-    # bestFitLine = shapely.geometry.LineString(list(zip(x,y)))
-    
-    
-    # for i in range(len(x)):
-    #     xs, ys = fb.createNormalLine(x,y, dx[i], dy[i])
-    #     stack = np.stack((xs,ys), axis=-1)
-    #     line = shapely.geometry.LineString(stack)
-        
-    #     #TODO remove this from main CODE
-    #     if(bestFitLine.intersects(line)):
-    #         #intersection geometry
-    #         interPoints = bestFitLine.intersection(line)
-            
-    #         #intersection point
-    #         mx, my = fb.proccessIntersectionPoint(interPoints, xscipy[j], yscipy[j])
     

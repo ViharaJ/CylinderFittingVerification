@@ -15,6 +15,7 @@ from scipy import signal
 from sklearn.neighbors import NearestNeighbors
 import matplotlib.pyplot as plt
 import pandas as pd
+from Reorder_Points import reOrderPoints
 
 #===========================FUNCTIONS=================================
 
@@ -62,7 +63,7 @@ def fittingBest(x,y):
     #https://stackoverflow.com/questions/18767523/fitting-data-with-numpy/18767992#18767992
     
     
-def reOrderPoints(x,y):
+# def reOrderPoints(x,y):
     k = list(zip(y,x)) #backwards order since this is copied from roughness script
     
     #find starting point of contour
@@ -120,10 +121,12 @@ for file in os.listdir(inputDir):
     data = np.loadtxt(inputDir + "/"+ file)
     r, z = data[:,0], data[:,1]
     
+    #REORDER POINTS
+    r,z = reOrderPoints(r, z, True)
     
     #create kernel
-    sig = 350
-    size = 319
+    sig = 350/2
+    size = 319/2
     kernel = fb.gauss1D(size, sig)   
 
     #get baseline - GAUSS

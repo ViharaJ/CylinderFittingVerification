@@ -1,8 +1,12 @@
 """
+POINT CLOUD name syntax: Side_ProbeX_*.txt where X is an int
+
 Fits cylinder to point cloud
 Writes r,phi files to folder name LineProfile-Output 
     - this folder must be created in the directory of this script 
-Credit to answer: https://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-datahttps://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-data
+    
+    
+Credit to answer: https://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-data
 """
 import numpy as np
 import os
@@ -15,24 +19,31 @@ import pandas as pd
 #===========================FUNCTIONS=================================
 def rotX(data, angle):
     '''
-    angle: in degrees
+    angle: in radians
     '''
     rotXmatrix = np.array([[1,0,0],
                            [0, np.cos(angle), -np.sin(angle)],
                            [0, np.sin(angle), np.cos(angle)]])
     
-    return np.dot(data, rotXmatrix)
+
+    
+    data_rot = np.dot(rotXmatrix, np.transpose(data))
+    
+    return np.transpose(data_rot)
 
 
 def rotY(data, angle):
     '''
-    angle: in degrees
+    angle: in radians
     '''
     rotYmatrix = np.array([[np.cos(angle), 0, np.sin(angle)],
                            [0, 1, 0],
                            [-np.sin(angle), 0, np.cos(angle)]])
     
-    return np.dot(data, rotYmatrix)
+    data_rot = np.dot(rotYmatrix, np.transpose(data))
+    
+    return np.transpose(data_rot)
+
 
 def cart2pol(x, y):
     '''
@@ -45,12 +56,10 @@ def cart2pol(x, y):
 
 def translate(data, x, y):
     '''
-    Translate data by x and y
-    Also shift to z = 0
+    Translate data by x and y to (0,0)
     '''
     data[:,0] = data[:,0] - x
     data[:,1] = data[:,1] - y
-    data[:,2] = data[:,2] - np.min(data[:,2])
     
     return data
 
@@ -61,7 +70,6 @@ def writeToTxt(name, a, b):
     
     
 def cylinderFitting(xyz,p,th):
-
     """
     This is a fitting for a vertical cylinder fitting
     Reference:
@@ -99,6 +107,9 @@ def data_for_cylinder_along_z(center_x,center_y,radius,height_z):
     return x_grid,y_grid,z_grid
 
 
+def deg2rad(angle):
+    return angle *( np.pi / 180)
+
 # PLOTTING STUFF
 
 # CT data and fitted cylinder
@@ -121,6 +132,9 @@ def data_for_cylinder_along_z(center_x,center_y,radius,height_z):
 # ax.axes.set_ylim3d (bottom=-3, top=2) 
 # ax.axes.set_zlim3d (bottom=0, top=3) 
 
+# PLOT FITTED CYLINDER, center = 0,0
+# X0.c,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 5)
+# ax.plot_surface(Xc, Yc, Zc, alpha=8)
 #===============GLOBAL VARIABLES=================================
 inputDir = "C:/Users/v.jayaweera/Documents/Anne/Line-Fitting/Point-Cloud-Files"
 stepWidth = 1
@@ -131,77 +145,71 @@ for file in os.listdir(inputDir):
     #include if statement to filter inocrrect file types here 
     data = np.loadtxt(inputDir + "/"+ file, skiprows=1)
     
+    #shift to z = 0
+    data[:,2] = data[:,2] - ((np.max(data[:, 2]) + np.min(data[:,2]))/2)
+    
     # fit cylinder
-    p = np.array([0,0,0,0,0.5])
-    est_p =  cylinderFitting(data,p,0.00001)
+    p = np.array([0,0,0,0,0.8]) # initial fit parametrs
+    est_p =  cylinderFitting(data,p,0.000001)
     print ("Fitting Done!\n")
-    print ("Estimated Parameters: ")
+    print ("Estimated Parameters for ", file, ": ")
     print (est_p)
     
-    #shift CT data to x,y,z = 0
+    #Translate CT data to x,y,z = 0
     data = translate(data, est_p[0], est_p[1])
     
-    #ROTATION
-    data = rotX(data, est_p[2])
-    data = rotY(data, est_p[3])
+    print("Angles ", est_p[2]*( 180 / np.pi), est_p[3]* (180 / np.pi))
+   
+    # #ROTATION
+    # data = rotX(data, -(est_p[2]))
+    # data = rotY(data, deg2rad(90))
     
-    x = data[:,0][::150]
-    y = data[:,1][::150]
-    z = data[:,2][::150]
+    x = data[:,0][::100]
+    y = data[:,1][::100]
+    z = data[:,2][::100]
     
-    #convert to cylindrical coordinates
-    (r, theta) = cart2pol(data[:,0], data[:,1])
+    # #convert to cylindrical coordinates
+    # (r, theta) = cart2pol(data[:,0], data[:,1])
     
-    theta = theta + 180 #change range to [0, 360]
+    # theta = theta + 180 #change range to [0, 360]
     
-    # PLOTTING
+    # # PLOTTING
     fig = plt.figure()
     ax = plt.axes(projection='3d')
     
     
-    # PLOT ORIGINAL
-    ax.scatter(x, y, z, marker=".", color="green")
-    
-    # PLOT FITTED CYLINDER, center = 0,0
-    Xc,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 5)
-    ax.plot_surface(Xc, Yc, Zc, alpha=0.8)
-    
+    # # PLOT ORIGINAL
+    ax.scatter(x, y, z, marker=".", color="green")    
     ax.set_title(file)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    
+    
+    #Plot a fitted cylinder 
+    Xc,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 5)
+    fit_data = np.transpose(np.array([Xc.flatten(), Yc.flatten(), Zc.flatten()]))                           
+  
+    
+    fit_data[:,2] = fit_data[:,2] - ((np.max(fit_data[:, 2]) + np.min(fit_data[:,2]))/2)
+    fit_data = rotX(fit_data, est_p[2])
+    fit_data = rotX(fit_data, est_p[3])
+
+    ax.scatter(fit_data[:,0],fit_data[:,1],fit_data[:,2], marker=".", color="red") 
     plt.show()
+        
+        
     
    
-    Ra = []
-    for deg in range(0,360, 1):
-        indices = np.where(np.logical_and(theta > deg - stepWidth/2, theta <= deg + stepWidth/2))
 
-        relv_x = data[indices, 0]
-        relv_y = data[indices, 1]
-        relv_z = data[indices, 2][0]
-        relv_radii = r[indices]
-        
-        if probe == "Probe3":
-            if deg <= 90 or deg >270: 
-                writeToTxt(probe + "/Profile_Deg_" + str(deg), relv_z, relv_radii)
-        elif probe == "Probe4":
-            if deg >180: 
-                writeToTxt(probe + "/Profile_Deg_" + str(deg), relv_z, relv_radii)
-        
-       
-        Ra.append([np.mean(np.abs(relv_radii - np.mean(relv_radii))), deg])
-        
-    Ra = np.array(Ra)
-    
-    
-    #save to file 
-    df = pd.DataFrame(data=Ra, columns=['Ra', 'Degree' ])
-    df.to_csv(probe + "_Ra_Data.csv", index=False)
 
-    #plot in polar coordinates
-    plt.polar(Ra[:,1] / (180 / np.pi), Ra[:,0],'.')
-    plt.show()
-    
-    #plot overall data
-    plt.plot(Ra[:,1], Ra[:,0], 'b.-')
-    plt.xlabel("Angel")
-    plt.ylabel("rho")
-    plt.show()
+
+
+#====================TESTING=-========================
+
+# mat1 = np.array([[1,2,3], [4,5,6], [6,7,8], [6,7,8]])
+ 
+mat2 = [[1,2,5], [2,2,6], [3,2,7], [4,2,8], [5,2,3]]
+
+# print(rotX(mat1, 0.52359878))
+
+# print(rotX(mat1, 0.95993109))

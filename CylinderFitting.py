@@ -150,7 +150,7 @@ for file in os.listdir(inputDir):
     
     # fit cylinder
     p = np.array([0,0,0,0,0.8]) # initial fit parametrs
-    est_p =  cylinderFitting(data,p,0.000001)
+    est_p =  cylinderFitting(data,p,0.00001)
     print ("Fitting Done!\n")
     print ("Estimated Parameters for ", file, ": ")
     print (est_p)

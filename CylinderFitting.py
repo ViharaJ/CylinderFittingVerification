@@ -1,11 +1,18 @@
 """
-POINT CLOUD name syntax: Side_ProbeX_*.txt where X is an int
+Reads point cloud file and finds the roughness along vertical profiles. 
+The script creates an excel file per file, indicating the roughness at each angle
 
-Fits cylinder to point cloud
-Writes r,phi files to folder name LineProfile-Output 
-    - this folder must be created in the directory of this script 
+2 Directories are created inside the directory containing the point cloud files.
+    1. LineProfile-Output contains the excel documents
+    2. Figures contains the plots
+
+
+How to use:
+    1. Place script in it's own directory
+    2. Change inputDir to location of Point Cloud files 
     
-    
+
+
 Credit to answer: https://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-data
 """
 import numpy as np
@@ -15,7 +22,6 @@ import matplotlib.pyplot as plt
 import csv
 import pandas as pd
 
-
 #===========================FUNCTIONS=================================
 def rotX(data, angle):
     '''
@@ -24,8 +30,6 @@ def rotX(data, angle):
     rotXmatrix = np.array([[1,0,0],
                            [0, np.cos(angle), -np.sin(angle)],
                            [0, np.sin(angle), np.cos(angle)]])
-    
-
     
     data_rot = np.dot(rotXmatrix, np.transpose(data))
     
@@ -63,12 +67,7 @@ def translate(data, x, y):
     
     return data
 
-
-def writeToTxt(name, a, b):
-    d  = np.column_stack([a, b])
-    np.savetxt('LineProfile-Output/' + name + '.txt', d, fmt=['%f','%f'])
-    
-    
+        
 def cylinderFitting(xyz,p,th):
     """
     This is a fitting for a vertical cylinder fitting
@@ -90,7 +89,8 @@ def cylinderFitting(xyz,p,th):
     y = xyz[:,1]
     z = xyz[:,2]
 
-    fitfunc = lambda p, x, y, z: (- np.cos(p[3])*(p[0] - x) - z*np.cos(p[2])*np.sin(p[3]) - np.sin(p[2])*np.sin(p[3])*(p[1] - y))**2 + (z*np.sin(p[2]) - np.cos(p[2])*(p[1] - y))**2 #fit function
+    fitfunc = lambda p, x, y, z: (- np.cos(p[3])*(p[0] - x) - z*np.cos(p[2])*np.sin(p[3]) - 
+                                  np.sin(p[2])*np.sin(p[3])*(p[1] - y))**2 + (z*np.sin(p[2]) - np.cos(p[2])*(p[1] - y))**2 #fit function
     errfunc = lambda p, x, y, z: fitfunc(p, x, y, z) - p[4]**2 #error function 
 
     est_p , success = leastsq(errfunc, p, args=(x, y, z), maxfev=1000)
@@ -110,106 +110,142 @@ def data_for_cylinder_along_z(center_x,center_y,radius,height_z):
 def deg2rad(angle):
     return angle *( np.pi / 180)
 
-# PLOTTING STUFF
 
-# CT data and fitted cylinder
-# fig = plt.figure()
-# ax = plt.axes(projection='3d')
-# ax.scatter(relv_x, relv_y, relv_z, marker=".", color="green")
-# ax.plot_surface(Xc, Yc, Zc, alpha=0.8) #plot fitted cylinder
-# ax.set_title('3D line plot geeks for geeks')
-# plt.show()
+def createDir(root, folderName):
+    '''
+    creates new folder if it doesn't exist
+    returns: new folder's path
+    '''
+    newPath = os.path.join(root, folderName)
+    if not os.path.exists(newPath):
+        os.makedirs(newPath)
+        
+    return newPath
 
-# R vs Z
-# plt.plot(relv_z, relv_radii, '.')
-# plt.xlabel("z")
-# plt.ylim([0,1])
-# plt.ylabel("r")
-# plt.show()
 
-# adjusting axes
-# ax.axes.set_xlim3d (left=-3, right=2) 
-# ax.axes.set_ylim3d (bottom=-3, top=2) 
-# ax.axes.set_zlim3d (bottom=0, top=3) 
-
-# PLOT FITTED CYLINDER, center = 0,0
-# X0.c,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 5)
-# ax.plot_surface(Xc, Yc, Zc, alpha=8)
-#===============GLOBAL VARIABLES=================================
-inputDir = "C:/Users/v.jayaweera/Documents/Anne/Line-Fitting/Point-Cloud-Files"
+#=============================GLOBAL VARIABLES=================================
+inputDir = "C:/Users/v.jayaweera/Documents/Anne/Line-Fitting/Point-Cloud-Files" #CHANGE TO YOUR DIRECTORY
 stepWidth = 1
 
-#=======================MAIN===================================
+
+# create directories to save files
+savePath = createDir(inputDir, "LineProfile-Output")
+figDir = createDir(inputDir, "Figures")
+
+
+#===================================MAIN===================================
 for file in os.listdir(inputDir):
-    probe = file.split("_")[1]
-    #include if statement to filter inocrrect file types here 
-    data = np.loadtxt(inputDir + "/"+ file, skiprows=1)
+    #include if statement to filter incorrect file types here 
+    if file.split(".")[-1] == "txt":
+        data = np.loadtxt(inputDir + "/"+ file, skiprows=1)
+        
+        Ra = []
+        angle = []
+        
+        #shift to x, y, z = 0
+        data[:,0] = data[:,0] - ((np.max(data[:, 0]) + np.min(data[:,0]))/2)
+        data[:,1] = data[:,1] - ((np.max(data[:, 1]) + np.min(data[:,1]))/2)
+        data[:,2] = data[:,2] - ((np.max(data[:, 2]) + np.min(data[:,2]))/2)
+        
+        # fit cylinder    
+        p = np.array([0, 0,0,0,0.8]) # initial fit parametrs
+        est_p =  cylinderFitting(data,p,0.00001)
+        print ("Fitting Done!\n")
+        print ("Estimated Parameters for ", file, ": ")
+        print (est_p)
+        
+        #Translate CT data to x,y,z = 0
+        data = translate(data, est_p[0], est_p[1])
+        
+        print("Angles ", est_p[2]*( 180 / np.pi), est_p[3]* (180 / np.pi))
+       
+        # Rotate to be upright, 
+        # TODO: check if suitable
+        data = rotX(data, -(est_p[2]))
+        data = rotY(data, -(est_p[3]))
+        
+        x = data[:,0]
+        y = data[:,1]
+        z = data[:,2]
+        
+        #convert to cylindrical coordinates
+        (r, theta) = cart2pol(data[:,0], data[:,1])
+        
+        theta = theta + 180 #change range to [0, 360]
+        
+        # Create a fitted cylinder 
+        Xc,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 2)
+        fit_data = np.transpose(np.array([Xc.flatten(), Yc.flatten(), Zc.flatten()]))  
     
-    #shift to z = 0
-    data[:,2] = data[:,2] - ((np.max(data[:, 2]) + np.min(data[:,2]))/2)
-    
-    # fit cylinder
-    p = np.array([0,0,0,0,0.8]) # initial fit parametrs
-    est_p =  cylinderFitting(data,p,0.00001)
-    print ("Fitting Done!\n")
-    print ("Estimated Parameters for ", file, ": ")
-    print (est_p)
-    
-    #Translate CT data to x,y,z = 0
-    data = translate(data, est_p[0], est_p[1])
-    
-    print("Angles ", est_p[2]*( 180 / np.pi), est_p[3]* (180 / np.pi))
-   
-    # #ROTATION
-    # data = rotX(data, -(est_p[2]))
-    # data = rotY(data, deg2rad(90))
-    
-    x = data[:,0][::100]
-    y = data[:,1][::100]
-    z = data[:,2][::100]
-    
-    # #convert to cylindrical coordinates
-    # (r, theta) = cart2pol(data[:,0], data[:,1])
-    
-    # theta = theta + 180 #change range to [0, 360]
-    
-    # # PLOTTING
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    
-    
-    # # PLOT ORIGINAL
-    ax.scatter(x, y, z, marker=".", color="green")    
-    ax.set_title(file)
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    
-    
-    #Plot a fitted cylinder 
-    Xc,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 5)
-    fit_data = np.transpose(np.array([Xc.flatten(), Yc.flatten(), Zc.flatten()]))                           
-  
-    
-    fit_data[:,2] = fit_data[:,2] - ((np.max(fit_data[:, 2]) + np.min(fit_data[:,2]))/2)
-    fit_data = rotX(fit_data, est_p[2])
-    fit_data = rotX(fit_data, est_p[3])
-
-    ax.scatter(fit_data[:,0],fit_data[:,1],fit_data[:,2], marker=".", color="red") 
-    plt.show()
+        
+        # iterate over the angles
+        for phi in range(0,360, stepWidth):
+            indices = np.where(np.logical_and(theta >= (phi - stepWidth/2), 
+                                                        theta < (phi+stepWidth / 2)))
+            interval_r = r[indices]
+            relv_x = x[indices]
+            relv_y = y[indices]
+            relv_z = z[indices]
+            
+            # find vals for line of best fit
+            a, b = np.polyfit(relv_z, interval_r, 1)
+            
+            # line of best fit
+            expected_rho = a*relv_z+b
+            
+            # roughness 
+            Ra.append(np.mean(np.abs(interval_r - expected_rho)) * 1000)
+            angle.append(phi)
         
         
+         
+        # plot Ra vs angle data 
+        plt.clf()
+        plt.plot(angle, Ra, "g.")
+        plt.show()
+        
+        # Plot 3D figures
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        
+        # Plot origina point cloud 
+        ax.scatter(x, y, z, marker=".", color="green")    
+        ax.set_title(file)
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        
     
+        # plot ideal cyclinder 
+        # TODO: DEBUG WHY IT LOOKS WEIRD
+        fit_data[:,2] = fit_data[:,2] - ((np.max(fit_data[:, 2]) + np.min(fit_data[:,2]))/2)
+        ax.scatter(fit_data[:,0],fit_data[:,1],fit_data[:,2], marker=".", color="red") 
+        plt.show()
+        
+        
+        # save data
+        d = {'Angle': angle, 'Ra(microns)': Ra}
+        df = pd.DataFrame(data=d)
+        df.to_excel(os.path.join(savePath, file.split('.')[0] +  '.xlsx'), index=False)
+        
+        # plot polar plot and save
+        plt.axes(projection = 'polar') 
+        plt.polar(deg2rad(np.array(angle)), Ra) 
+        plt.savefig(savePath + "\\" + file.split(".")[0], dpi=1000)
+        plt.show()
+            
+        #THE PORTION BELOW CAN BE COMMENTED OUT
+        # Plot levels, cross sections
+        vals = np.linspace(-0.7, 0.5, 100)
+        
+        for i in range(len(vals)):
+            level = vals[i]
+            indices = np.where(np.logical_and(z > level-0.01, z < level+0.01))
+            
+            plt.title(file)
+            plt.plot(x[indices], y[indices], "g.")
+            plt.show()
+        
    
+    
+    
 
-
-
-
-#====================TESTING=-========================
-
-# mat1 = np.array([[1,2,3], [4,5,6], [6,7,8], [6,7,8]])
- 
-mat2 = [[1,2,5], [2,2,6], [3,2,7], [4,2,8], [5,2,3]]
-
-# print(rotX(mat1, 0.52359878))
-
-# print(rotX(mat1, 0.95993109))

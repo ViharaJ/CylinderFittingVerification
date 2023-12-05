@@ -137,8 +137,17 @@ def createDir(root, folderName):
     return newPath
 
 
+def filterPointCloud(radius_data, angle_data, cartData,rmin):
+    """
+    cartData: cartesion data [[x,y,z]...[]]
+    rmin: minimum radius
+    """
+    indx = np.where(radius_data >= rmin)
+    
+    return radius_data[indx] , angle_data[indx], cartData[indx]
+
 #=============================GLOBAL VARIABLES=================================
-inputDir = "Z:/Projekte/42029-FOR5250/Vihara/Line-Fitting/Point-Cloud-Files" #CHANGE TO YOUR DIRECTORY
+inputDir = "C:\\Users\\v.jayaweera\\Downloads\\CylinderFittingVerification-main\\CylinderFittingVerification-main\\Point-Cloud-Files" #CHANGE TO YOUR DIRECTORY
 stepWidth = 1
 
 
@@ -185,15 +194,18 @@ for file in os.listdir(inputDir):
         # TODO: check if suitable
         data = rotX(data, -(est_p[2]))
         data = rotY(data, -(est_p[3]))
-        
-        x = data[:,0]
-        y = data[:,1]
-        z = data[:,2]
+
         
         #convert to cylindrical coordinates
         # Abstand vom Pol - r (Radius), theta - Winkelkoordinate
         (r, theta) = cart2pol(data[:,0], data[:,1])
         
+        # try to remove pores from ALL FILES, currently use average radius as min RADIUS #YOU CAN CHNAGE THIS HERE
+        r, theta, data = filterPointCloud(r, theta, data, np.average(r))
+        
+        x = data[:,0]
+        y = data[:,1]
+        z = data[:,2]
         
         # Create a fitted cylinder > used for the 3D plot not for surface calculation
         Xc,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 2)

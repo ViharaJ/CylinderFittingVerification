@@ -12,8 +12,17 @@ How to use:
     2. Change inputDir to location of Point Cloud files 
     
 
-
-Credit to answer: https://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-data
+How it works: 
+    1. The point cloud file is loaded 
+    2. An ideal cyclinder is fitted to it
+        Credit to answer: 
+            https://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-data
+    3. Using the parameters of the ideal cyclinder, reorient the cyclinder 
+        to be upright and with no rotations 
+    4. Iterate over the angles in the range [0,360]
+    5. At each angle, extract a vertical profile. 
+    6. Do a linear fit the data 
+    7. Compute roughness between linear fitted line and surface
 """
 import numpy as np
 import os
@@ -52,6 +61,10 @@ def rotY(data, angle):
 def cart2pol(x, y):
     '''
     returns r and phi, angle is in degrees [-180,180]
+    converts cartesian coordinates into polar coordinates
+    Abstand vom Pol - r / rho (Radius, Radialkoordinate)
+    Winkel -  phi (Winkelkoordinate)
+  
     '''
     rho = np.sqrt(x**2 + y**2)
     phi = np.arctan2(y, x)* 180 / np.pi
@@ -73,6 +86,7 @@ def cylinderFitting(xyz,p,th):
     This is a fitting for a vertical cylinder fitting
     Reference:
     http://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XXXIX-B5/169/2012/isprsarchives-XXXIX-B5-169-2012.pdf
+    https://stackoverflow.com/questions/43784618/fit-a-cylinder-to-scattered-3d-xyz-point-data/44164662#44164662
 
     xyz is a matrix contain at least 5 rows, and each row stores x y z of a cylindrical surface
     p is initial values of the parameter;
@@ -111,7 +125,7 @@ def deg2rad(angle):
     return angle *( np.pi / 180)
 
 
-def createDir(root, folderName):
+def createDir(root, folderName): 
     '''
     creates new folder if it doesn't exist
     returns: new folder's path
@@ -124,7 +138,7 @@ def createDir(root, folderName):
 
 
 #=============================GLOBAL VARIABLES=================================
-inputDir = "C:/Users/v.jayaweera/Documents/Anne/Line-Fitting/Point-Cloud-Files" #CHANGE TO YOUR DIRECTORY
+inputDir = "Z:/Projekte/42029-FOR5250/Vihara/Line-Fitting/Point-Cloud-Files" #CHANGE TO YOUR DIRECTORY
 stepWidth = 1
 
 
@@ -142,21 +156,29 @@ for file in os.listdir(inputDir):
         Ra = []
         angle = []
         
-        #shift to x, y, z = 0
+        #shift center of point cloud to x, y, z = 0
         data[:,0] = data[:,0] - ((np.max(data[:, 0]) + np.min(data[:,0]))/2)
         data[:,1] = data[:,1] - ((np.max(data[:, 1]) + np.min(data[:,1]))/2)
         data[:,2] = data[:,2] - ((np.max(data[:, 2]) + np.min(data[:,2]))/2)
         
         # fit cylinder    
-        p = np.array([0, 0,0,0,0.8]) # initial fit parametrs
+        p = np.array([0,0,0,0,0.8]) # initial fit parametrs
+        '''
+        p[0] = Xc, x coordinate of the cylinder centre
+        P[1] = Yc, y coordinate of the cylinder centre
+        P[2] = alpha, rotation angle (radian) about the x-axis
+        P[3] = beta, rotation angle (radian) about the y-axis
+        P[4] = r, radius of the cylinder - initial value based on design 
+        '''
         est_p =  cylinderFitting(data,p,0.00001)
         print ("Fitting Done!\n")
         print ("Estimated Parameters for ", file, ": ")
         print (est_p)
         
-        #Translate CT data to x,y,z = 0
+        #Translate CT data to x,y = 0
         data = translate(data, est_p[0], est_p[1])
         
+        # in radians and converting to degrees 
         print("Angles ", est_p[2]*( 180 / np.pi), est_p[3]* (180 / np.pi))
        
         # Rotate to be upright, 
@@ -169,32 +191,35 @@ for file in os.listdir(inputDir):
         z = data[:,2]
         
         #convert to cylindrical coordinates
+        # Abstand vom Pol - r (Radius), theta - Winkelkoordinate
         (r, theta) = cart2pol(data[:,0], data[:,1])
         
-        theta = theta + 180 #change range to [0, 360]
         
-        # Create a fitted cylinder 
+        # Create a fitted cylinder > used for the 3D plot not for surface calculation
         Xc,Yc,Zc = data_for_cylinder_along_z(0,0,est_p[4], 2)
         fit_data = np.transpose(np.array([Xc.flatten(), Yc.flatten(), Zc.flatten()]))  
     
         
-        # iterate over the angles
-        for phi in range(0,360, stepWidth):
+        # iterate over the angles (different name than theta, because phi is the loop variable and would otherwise overwrite theta)
+        for phi in range(-180, 180, stepWidth): #-180 to 180 because cart2pol defines it in this range
+        
+        
+            #get indices where theta is phi
             indices = np.where(np.logical_and(theta >= (phi - stepWidth/2), 
                                                         theta < (phi+stepWidth / 2)))
             interval_r = r[indices]
-            relv_x = x[indices]
-            relv_y = y[indices]
-            relv_z = z[indices]
+            relv_x = x[indices]  
+            relv_y = y[indices] 
+            relv_z = z[indices] # used for printing, not calculation
             
             # find vals for line of best fit
             a, b = np.polyfit(relv_z, interval_r, 1)
             
-            # line of best fit
+            # line of best fit 
             expected_rho = a*relv_z+b
             
             # roughness 
-            Ra.append(np.mean(np.abs(interval_r - expected_rho)) * 1000)
+            Ra.append(np.mean(np.abs(interval_r - expected_rho)) * 1)
             angle.append(phi)
         
         
@@ -230,7 +255,7 @@ for file in os.listdir(inputDir):
         # plot polar plot and save
         plt.axes(projection = 'polar') 
         plt.polar(deg2rad(np.array(angle)), Ra) 
-        plt.savefig(savePath + "\\" + file.split(".")[0], dpi=1000)
+        plt.savefig(os.path.join(figDir, file.split(".")[0]), dpi=1000)
         plt.show()
             
         #THE PORTION BELOW CAN BE COMMENTED OUT
